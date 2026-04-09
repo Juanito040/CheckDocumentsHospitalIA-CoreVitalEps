@@ -58,7 +58,7 @@ def make_query(
         db.add(query_log)
         db.commit()
 
-        logger.info(f"✅ Consulta procesada - Tiempo: {result['response_time_ms']}ms")
+        logger.info(f"Consulta procesada - Tiempo: {result['response_time_ms']}ms")
 
         return QueryResponse(
             answer=result["answer"],
@@ -69,7 +69,7 @@ def make_query(
         )
 
     except Exception as e:
-        logger.error(f"❌ Error al procesar consulta: {e}")
+        logger.error(f"Error al procesar consulta: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al procesar consulta: {str(e)}"

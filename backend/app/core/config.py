@@ -36,8 +36,8 @@ class Settings(BaseSettings):
 
     # RAG
     CHUNK_SIZE: int = 500
-    CHUNK_OVERLAP: int = 50
-    TOP_K_RESULTS: int = 5
+    CHUNK_OVERLAP: int = 100
+    TOP_K_RESULTS: int = 8
 
     # Archivos
     MAX_FILE_SIZE_MB: int = 50

@@ -72,10 +72,11 @@ class OllamaService:
                 model=model_to_use,
                 prompt=full_prompt,
                 options={
-                    "temperature": 0.15,  # Bajo para respuestas precisas y consistentes
+                    "temperature": 0.15,
                     "top_p": 0.9,
                     "top_k": 40,
-                    "repeat_penalty": 1.1,  # Evita repetir frases
+                    "repeat_penalty": 1.1,
+                    "num_ctx": 4096,  # Ventana de contexto ampliada
                 }
             )
 
@@ -93,6 +94,36 @@ class OllamaService:
                 return self.generate_response(prompt, context, use_fallback=True)
 
             raise Exception(f"Error al generar respuesta: {str(e)}")
+
+    def rewrite_query(self, question: str) -> str:
+        """
+        Reformular la pregunta del usuario en términos técnicos/documentales
+        para mejorar la búsqueda semántica en ChromaDB.
+
+        Args:
+            question: Pregunta original del usuario
+
+        Returns:
+            Pregunta reformulada con terminología documental/hospitalaria
+        """
+        prompt = f"""Reformula la siguiente pregunta usando términos técnicos, médicos o administrativos que probablemente aparezcan en documentos hospitalarios. Devuelve ÚNICAMENTE la pregunta reformulada, sin explicaciones ni prefijos.
+
+Pregunta original: {question}
+
+Pregunta reformulada:"""
+
+        try:
+            response = ollama.generate(
+                model=self.model,
+                prompt=prompt,
+                options={"temperature": 0.1, "top_p": 0.9, "num_ctx": 1024}
+            )
+            rewritten = response['response'].strip()
+            logger.info(f"Query reescrita: '{question[:60]}' → '{rewritten[:60]}'")
+            return rewritten if rewritten else question
+        except Exception as e:
+            logger.warning(f"Error al reescribir query, usando original: {e}")
+            return question
 
     def _build_prompt_with_context(self, question: str, context: Optional[str] = None) -> str:
         """
@@ -112,22 +143,24 @@ No tienes documentos disponibles para responder esta consulta. Indica al usuario
 
 Pregunta: {question}
 
-Responde siempre en español, de forma breve y profesional."""
+Responde en español, de forma breve y profesional."""
 
-        return f"""Eres CoreVital, un asistente especializado en documentación hospitalaria del Hospital San Rafael. Tu función es responder preguntas basándote EXCLUSIVAMENTE en los fragmentos de documentos que se te proporcionan.
+        return f"""Eres CoreVital, un asistente especializado en documentación hospitalaria del Hospital San Rafael. Respondes preguntas basándote EXCLUSIVAMENTE en los fragmentos de documentos proporcionados.
 
 DOCUMENTOS DE REFERENCIA:
 {context}
 
-PREGUNTA DEL USUARIO: {question}
+PREGUNTA: {question}
 
-REGLAS ESTRICTAS:
-1. Responde ÚNICAMENTE con información que esté en los documentos de referencia
-2. Si la respuesta no está en los documentos, di exactamente: "No encontré información sobre esto en los documentos disponibles."
-3. No agregues conocimiento externo ni suposiciones
-4. Responde siempre en español
-5. Sé directo y preciso; si corresponde, usa listas o pasos numerados para mayor claridad
-6. Si la información proviene de un documento específico, puedes mencionarlo
+INSTRUCCIONES:
+1. Responde ÚNICAMENTE con información presente en los documentos de referencia.
+2. Si la respuesta está parcialmente en los documentos, responde lo que puedas e indica qué parte no encontraste.
+3. Si la respuesta NO está en los documentos, di exactamente: "No encontré información sobre esto en los documentos disponibles."
+4. Cuando uses información de un fragmento específico, cítalo: "Según [nombre del archivo]..."
+5. No agregues conocimiento externo ni suposiciones.
+6. Responde en español, de forma clara y estructurada.
+7. Usa listas o pasos numerados cuando corresponda.
+8. Si la información recuperada es ambigua o incompleta, indícalo explícitamente.
 
 RESPUESTA:"""
 

@@ -47,7 +47,7 @@ def create_user(
     """
     try:
         user = AuthService.create_user(db, user_data)
-        logger.info(f"✅ Usuario creado por admin {current_admin.email}: {user.email}")
+        logger.info(f"Usuario creado por admin {current_admin.email}: {user.email}")
         return user
 
     except ValueError as e:
@@ -97,7 +97,7 @@ def update_user(
     db.commit()
     db.refresh(user)
 
-    logger.info(f"✅ Usuario actualizado por admin {current_admin.email}: {user.email}")
+    logger.info(f"Usuario actualizado por admin {current_admin.email}: {user.email}")
 
     return user
 
@@ -131,7 +131,7 @@ def deactivate_user(
     user.activo = False
     db.commit()
 
-    logger.info(f"✅ Usuario desactivado por admin {current_admin.email}: {user.email}")
+    logger.info(f"Usuario desactivado por admin {current_admin.email}: {user.email}")
 
     return {
         "message": "Usuario desactivado exitosamente",

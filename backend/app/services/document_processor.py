@@ -46,7 +46,7 @@ class DocumentProcessor:
 
             doc.close()
 
-            logger.info(f"✅ Texto extraído del PDF: {len(text)} caracteres")
+            logger.info(f"Texto extraído del PDF: {len(text)} caracteres")
             return text
 
         except Exception as e:
@@ -78,7 +78,7 @@ class DocumentProcessor:
                         text += cell.text + " "
                 text += "\n"
 
-            logger.info(f"✅ Texto extraído del DOCX: {len(text)} caracteres")
+            logger.info(f"Texto extraído del DOCX: {len(text)} caracteres")
             return text
 
         except Exception as e:
@@ -137,7 +137,7 @@ class DocumentProcessor:
             if start >= len(words):
                 break
 
-        logger.info(f"✅ Texto fragmentado en {len(chunks)} chunks")
+        logger.info(f"Texto fragmentado en {len(chunks)} chunks")
         return chunks
 
     def process_document(
@@ -190,7 +190,7 @@ class DocumentProcessor:
             chunk_ids.append(chunk_id)
             metadatas.append(metadata)
 
-        logger.info(f"✅ Documento procesado: {len(chunks)} chunks generados")
+        logger.info(f"Documento procesado: {len(chunks)} chunks generados")
 
         return chunks, metadatas, chunk_ids
 

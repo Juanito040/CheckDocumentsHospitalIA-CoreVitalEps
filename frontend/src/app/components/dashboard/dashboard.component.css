@@ -281,6 +281,19 @@
 .chat-windows[hidden] { display: none !important; }
 
 /* Ventana individual */
+@keyframes windowEnter {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.98);
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    clip-path: inset(0 0 0 0%);
+  }
+}
+
 .chat-window {
   flex: 1;
   display: flex;
@@ -289,6 +302,7 @@
   border-right: 1px solid #e5e7eb;
   background: #f7f9fb;
   overflow: hidden;
+  animation: windowEnter 0.25s ease-out both;
 }
 
 .chat-window:last-child { border-right: none; }

@@ -39,16 +39,16 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     """Evento ejecutado al iniciar la aplicación"""
-    logger.info("🚀 Iniciando Sistema de Consulta IA - CoreVital")
-    logger.info(f"📊 Base de datos: {settings.DATABASE_URL}")
-    logger.info(f"🤖 Modelo LLM: {settings.OLLAMA_MODEL}")
-    logger.info(f"🔍 Modelo Embeddings: {settings.OLLAMA_EMBEDDING_MODEL}")
+    logger.info("Iniciando Sistema de Consulta IA - CoreVital")
+    logger.info(f"Base de datos: {settings.DATABASE_URL}")
+    logger.info(f"Modelo LLM: {settings.OLLAMA_MODEL}")
+    logger.info(f"Modelo Embeddings: {settings.OLLAMA_EMBEDDING_MODEL}")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Evento ejecutado al detener la aplicación"""
-    logger.info("🛑 Deteniendo Sistema de Consulta IA")
+    logger.info("Deteniendo Sistema de Consulta IA")
 
 
 @app.get("/")

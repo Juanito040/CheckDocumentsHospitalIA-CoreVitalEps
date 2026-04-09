@@ -117,7 +117,7 @@ async def upload_document(
         db.commit()
         db.refresh(document)
 
-        logger.info(f"✅ Documento indexado exitosamente: {file.filename}")
+        logger.info(f"Documento indexado exitosamente: {file.filename}")
 
         return DocumentUploadResponse(
             message="Documento procesado e indexado exitosamente",
@@ -128,7 +128,7 @@ async def upload_document(
         )
 
     except Exception as e:
-        logger.error(f"❌ Error al procesar documento: {e}")
+        logger.error(f"Error al procesar documento: {e}")
 
         # Limpiar archivo temporal si existe
         if temp_file_path.exists():
@@ -204,7 +204,7 @@ def delete_document(
         document.estado = "eliminado"
         db.commit()
 
-        logger.info(f"✅ Documento eliminado: {document.nombre_archivo}")
+        logger.info(f"Documento eliminado: {document.nombre_archivo}")
 
         return {
             "message": "Documento eliminado exitosamente",
@@ -212,7 +212,7 @@ def delete_document(
         }
 
     except Exception as e:
-        logger.error(f"❌ Error al eliminar documento: {e}")
+        logger.error(f"Error al eliminar documento: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al eliminar documento: {str(e)}"

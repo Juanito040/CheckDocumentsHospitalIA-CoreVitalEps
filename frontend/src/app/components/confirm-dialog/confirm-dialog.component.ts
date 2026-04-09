@@ -11,6 +11,7 @@ export interface ConfirmDialogData {
   confirmLabel?: string;
   cancelLabel?: string;
   type?: 'danger' | 'warning' | 'info';
+  icon?: string;
 }
 
 @Component({
@@ -27,6 +28,7 @@ export class ConfirmDialogComponent {
   ) {}
 
   get icon(): string {
+    if (this.data.icon) return this.data.icon;
     const icons: Record<string, string> = { danger: 'delete_forever', warning: 'warning', info: 'info' };
     return icons[this.data.type ?? 'danger'];
   }

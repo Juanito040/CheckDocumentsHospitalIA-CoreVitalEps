@@ -3,6 +3,7 @@ Servicio RAG (Retrieval-Augmented Generation)
 Núcleo del sistema de consultas inteligentes
 """
 import logging
+import re
 import time
 from typing import Dict, List, Optional
 
@@ -47,11 +48,14 @@ class RAGService:
         start_time = time.time()
 
         try:
-            # 1. Vectorizar pregunta
-            logger.info(f"🔍 Consulta recibida: {question[:100]}...")
-            query_embedding = self._vectorize_query(question)
+            # 1. Reescribir pregunta para mejorar búsqueda semántica
+            logger.info(f"Consulta recibida: {question[:100]}...")
+            rewritten_question = self.ollama.rewrite_query(question)
 
-            # 2. Buscar fragmentos relevantes
+            # 2. Vectorizar pregunta reescrita
+            query_embedding = self._vectorize_query(rewritten_question)
+
+            # 3. Buscar fragmentos relevantes
             metadata_filter = {"category": category_filter} if category_filter else None
             search_results = self._search_relevant_chunks(
                 query_embedding,
@@ -59,20 +63,23 @@ class RAGService:
                 filter_metadata=metadata_filter
             )
 
-            # 3. Verificar si se encontraron resultados
+            # 4. Verificar si se encontraron resultados
             if not search_results["documents"]:
                 return self._no_results_response(question, time.time() - start_time)
 
-            # Filtrar fragmentos con distancia semántica muy alta (poco relevantes)
-            search_results = self._filter_by_distance(search_results, max_distance=0.75)
+            # Filtrar fragmentos con distancia semántica alta (umbral más estricto)
+            search_results = self._filter_by_distance(search_results, max_distance=0.65)
 
             if not search_results["documents"]:
                 return self._no_results_response(question, time.time() - start_time)
 
-            # 4. Construir contexto
+            # 5. Reranking: reordenar por relevancia real a la pregunta original
+            search_results = self._rerank(question, search_results)
+
+            # 6. Construir contexto
             context = self._build_context(search_results)
 
-            # 5. Generar respuesta con LLM
+            # 7. Generar respuesta con LLM (usando pregunta original para la respuesta)
             answer = self._generate_answer(question, context)
 
             # 6. Preparar referencias
@@ -80,7 +87,7 @@ class RAGService:
 
             response_time = int((time.time() - start_time) * 1000)  # en milisegundos
 
-            logger.info(f"✅ Respuesta generada en {response_time}ms")
+            logger.info(f"Respuesta generada en {response_time}ms")
 
             return {
                 "answer": answer,
@@ -91,14 +98,14 @@ class RAGService:
             }
 
         except Exception as e:
-            logger.error(f"❌ Error en consulta RAG: {e}")
+            logger.error(f"Error en consulta RAG: {e}")
             raise Exception(f"Error al procesar consulta: {str(e)}")
 
     def _vectorize_query(self, question: str) -> List[float]:
         """
         Paso 1: Convertir pregunta en vector usando modelo de embeddings
         """
-        logger.info("📊 Vectorizando pregunta...")
+        logger.info("Vectorizando pregunta...")
         embedding = self.ollama.generate_embedding(question)
         return embedding
 
@@ -111,7 +118,7 @@ class RAGService:
         """
         Paso 2: Buscar fragmentos más relevantes por similitud semántica
         """
-        logger.info(f"🔎 Buscando fragmentos relevantes (top_k={top_k})...")
+        logger.info(f"Buscando fragmentos relevantes (top_k={top_k})...")
 
         results = self.vector_store.similarity_search(
             query_embedding=query_embedding,
@@ -119,7 +126,7 @@ class RAGService:
             filter_metadata=filter_metadata
         )
 
-        logger.info(f"📚 Se encontraron {len(results['documents'])} fragmentos relevantes")
+        logger.info(f"Se encontraron {len(results['documents'])} fragmentos relevantes")
         return results
 
     def _build_context(self, search_results: Dict) -> str:
@@ -142,7 +149,7 @@ class RAGService:
             context_parts.append(context_part)
 
         context = "\n".join(context_parts)
-        logger.info(f"📝 Contexto construido: {len(context)} caracteres")
+        logger.info(f"Contexto construido: {len(context)} caracteres")
 
         return context
 
@@ -150,7 +157,7 @@ class RAGService:
         """
         Paso 4: Generar respuesta usando el LLM con el contexto recuperado
         """
-        logger.info("🤖 Generando respuesta con LLM...")
+        logger.info("Generando respuesta con LLM...")
 
         answer = self.ollama.generate_response(
             prompt=question,
@@ -182,7 +189,54 @@ class RAGService:
 
         return sources
 
-    def _filter_by_distance(self, search_results: Dict, max_distance: float = 0.75) -> Dict:
+    def _rerank(self, question: str, search_results: Dict) -> Dict:
+        """
+        Reordenar fragmentos combinando distancia semántica con solapamiento
+        de palabras clave entre la pregunta y cada fragmento.
+
+        Puntuación final = 0.6 * (1 - distancia_normalizada) + 0.4 * solapamiento_keywords
+        """
+        if len(search_results["documents"]) <= 1:
+            return search_results
+
+        # Extraer palabras clave de la pregunta (sin stopwords básicas)
+        stopwords = {
+            "de", "la", "el", "en", "y", "a", "los", "las", "que", "un", "una",
+            "es", "se", "del", "al", "por", "con", "para", "como", "su", "lo",
+            "me", "mi", "te", "tu", "nos", "les", "le", "hay", "qué", "cómo",
+            "cuál", "cuáles", "dónde", "cuándo", "quién", "tiene", "tienen"
+        }
+        question_tokens = set(
+            re.sub(r'[^\w\s]', '', question.lower()).split()
+        ) - stopwords
+
+        max_dist = max(search_results["distances"]) or 1.0
+
+        scored = []
+        for i, (doc, meta, dist) in enumerate(zip(
+            search_results["documents"],
+            search_results["metadatas"],
+            search_results["distances"]
+        )):
+            doc_tokens = set(re.sub(r'[^\w\s]', '', doc.lower()).split())
+            overlap = len(question_tokens & doc_tokens) / max(len(question_tokens), 1)
+            semantic_score = 1.0 - (dist / max_dist)
+            final_score = 0.6 * semantic_score + 0.4 * overlap
+            scored.append((final_score, i))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        order = [i for _, i in scored]
+
+        reranked = {
+            "ids":       [search_results["ids"][i] for i in order],
+            "documents": [search_results["documents"][i] for i in order],
+            "metadatas": [search_results["metadatas"][i] for i in order],
+            "distances": [search_results["distances"][i] for i in order],
+        }
+        logger.info(f"Reranking aplicado sobre {len(order)} fragmentos")
+        return reranked
+
+    def _filter_by_distance(self, search_results: Dict, max_distance: float = 0.65) -> Dict:
         """
         Filtrar fragmentos cuya distancia semántica supera el umbral.
         ChromaDB usa distancia coseno: 0 = idéntico, 2 = opuesto.
@@ -199,7 +253,7 @@ class RAGService:
 
         discarded = len(search_results["documents"]) - len(filtered["documents"])
         if discarded:
-            logger.info(f"🔎 {discarded} fragmento(s) descartados por baja relevancia (distancia > {max_distance})")
+            logger.info(f"{discarded} fragmento(s) descartados por baja relevancia (distancia > {max_distance})")
 
         return filtered
 
@@ -209,7 +263,7 @@ class RAGService:
         """
         response_time = int(elapsed_time * 1000)
 
-        logger.warning("⚠️ No se encontraron fragmentos relevantes")
+        logger.warning("No se encontraron fragmentos relevantes")
 
         return {
             "answer": "No encontré información relevante sobre esa pregunta en los documentos indexados. "

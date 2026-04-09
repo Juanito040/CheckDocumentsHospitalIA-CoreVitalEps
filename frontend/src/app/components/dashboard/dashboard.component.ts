@@ -3,9 +3,11 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthService } from '../../services/auth.service';
 import { ChatInterfaceComponent } from '../chat-interface/chat-interface.component';
 import { HistoryComponent } from '../history/history.component';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { User } from '../../models/user.model';
 
 export interface ChatWindow {
@@ -24,6 +26,7 @@ const WINDOWS_KEY = 'cv_windows';
     RouterLink,
     MatIconModule,
     MatMenuModule,
+    MatDialogModule,
     ChatInterfaceComponent,
     HistoryComponent
   ],
@@ -37,7 +40,8 @@ export class DashboardComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -70,9 +74,25 @@ export class DashboardComponent implements OnInit {
   }
 
   closeChat(id: number): void {
-    localStorage.removeItem(`cv_chat_${id}`);
-    this.chatWindows = this.chatWindows.filter(w => w.id !== id);
-    this.saveWindows();
+    const ref = this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      panelClass: 'confirm-dialog-panel',
+      data: {
+        title: 'Cerrar consulta',
+        message: '¿Deseas cerrar esta consulta? El historial de conversación se perderá.',
+        confirmLabel: 'Cerrar',
+        cancelLabel: 'Cancelar',
+        type: 'info',
+        icon: 'chat_bubble_outline'
+      }
+    });
+
+    ref.afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      localStorage.removeItem(`cv_chat_${id}`);
+      this.chatWindows = this.chatWindows.filter(w => w.id !== id);
+      this.saveWindows();
+    });
   }
 
   private saveWindows(): void {
@@ -89,11 +109,26 @@ export class DashboardComponent implements OnInit {
   }
 
   logout(): void {
-    // Limpiar estado de chat al cerrar sesión
-    [1, 2, 3].forEach(i => localStorage.removeItem(`cv_chat_${i}`));
-    localStorage.removeItem(WINDOWS_KEY);
-    this.authService.logout();
-    this.router.navigate(['/login']);
+    const ref = this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      panelClass: 'confirm-dialog-panel',
+      data: {
+        title: 'Cerrar sesión',
+        message: '¿Estás seguro de que deseas cerrar sesión?',
+        confirmLabel: 'Cerrar sesión',
+        cancelLabel: 'Cancelar',
+        type: 'danger',
+        icon: 'logout'
+      }
+    });
+
+    ref.afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      [1, 2, 3].forEach(i => localStorage.removeItem(`cv_chat_${i}`));
+      localStorage.removeItem(WINDOWS_KEY);
+      this.authService.logout();
+      this.router.navigate(['/login']);
+    });
   }
 
   get isAdmin(): boolean {

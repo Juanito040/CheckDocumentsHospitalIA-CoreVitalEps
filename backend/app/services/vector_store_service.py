@@ -76,7 +76,7 @@ class VectorStoreService:
                 ids=ids
             )
 
-            logger.info(f"✅ {len(documents)} documentos agregados a ChromaDB")
+            logger.info(f"{len(documents)} documentos agregados a ChromaDB")
             return True
 
         except Exception as e:
@@ -152,7 +152,7 @@ class VectorStoreService:
                 ids=results["ids"]
             )
 
-            logger.info(f"✅ Documento {document_id} eliminado ({len(results['ids'])} chunks)")
+            logger.info(f"Documento {document_id} eliminado ({len(results['ids'])} chunks)")
             return True
 
         except Exception as e:
@@ -192,7 +192,7 @@ class VectorStoreService:
         try:
             self.client.delete_collection(name=self.collection_name)
             self.collection = self._get_or_create_collection()
-            logger.warning("⚠️ Colección ChromaDB eliminada y recreada")
+            logger.warning("Colección ChromaDB eliminada y recreada")
             return True
 
         except Exception as e:
